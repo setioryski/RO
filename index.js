@@ -53,6 +53,7 @@ app.set('view engine', 'ejs');
 // Middleware for serving static files and handling form data
 app.use(express.static('public'));
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploadscomplete', express.static(path.join(__dirname, 'uploadscomplete')));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 
@@ -209,28 +210,91 @@ app.post('/upload', isAuthenticated, checkRole(['admin', 'petugas']), upload.sin
 
 
 
+//uploadupdate
 
-// Function to delete a file with retries on EPERM errors
-function deleteFileWithRetry(filePath, maxAttempts = 3) {
-    let attempts = 0;
+app.get('/uploadupdate/:id', isAuthenticated, checkRole(['admin', 'petugas']), (req, res) => {
+    const assetId = req.params.id;
 
-    const attemptDeletion = () => {
-        fs.unlink(filePath, (err) => {
+    // Fetch the asset data based on the assetId
+    const query = 'SELECT * FROM aset WHERE id = ?';
+    
+    pool.query(query, [assetId], (err, results) => {
+        if (err) {
+            console.error('Failed to retrieve asset:', err);
+            return res.status(500).send('Error fetching asset data');
+        }
+
+        if (results.length === 0) {
+            return res.status(404).send('Asset not found');
+        }
+
+        const asset = results[0];
+        res.render('uploadUpdateForm', { asset });
+    });
+});
+
+app.post('/uploadupdate/:id', isAuthenticated, checkRole(['admin', 'petugas']), upload.single('completed_photo'), async (req, res) => {
+    const assetId = req.params.id;
+    const { status, keterangan, completion_date } = req.body;
+
+    console.log('Received form data:', req.body);
+    console.log('Received file:', req.file);
+
+    // Validate required fields
+    if (!status || !keterangan || !completion_date) {
+        return res.status(400).json({ success: false, message: 'Missing required fields.' });
+    }
+
+    let completedImagePath = null;
+
+    try {
+        if (req.file) {
+            // Process and resize the uploaded image
+            completedImagePath = `uploadscomplete/completed-${req.file.filename}`;
+            await sharp(req.file.path)
+                .rotate()
+                .resize(800)
+                .jpeg({ quality: 70 })
+                .toFile(completedImagePath);
+
+            // Cleanup original file after successful processing
+            deleteFileWithRetry(req.file.path);
+        }
+
+        // SQL query to update data in the database
+        const query = `
+            UPDATE aset 
+            SET completed_photo = ?, status = ?, keterangan = ?, completion_date = ? 
+            WHERE id = ?
+        `;
+        const queryValues = [
+            completedImagePath, 
+            status, 
+            keterangan, 
+            completion_date, 
+            assetId
+        ];
+
+        // Execute the query
+        pool.query(query, queryValues, (err, result) => {
             if (err) {
-                if (++attempts < maxAttempts) {
-                    console.log(`Attempt ${attempts} failed, retrying to delete ${filePath}...`);
-                    setTimeout(attemptDeletion, 1000); // retry after 1 second
-                } else {
-                    console.error(`Failed to delete ${filePath} after several attempts:`, err);
-                }
-            } else {
-                console.log(`File ${filePath} deleted successfully`);
+                console.error('Failed to update the database:', err);
+        
+                if (completedImagePath) deleteFileWithRetry(completedImagePath); // Cleanup resized file on failure
+                return res.status(500).json({ success: false, message: 'Database update failed.' });
             }
-        });
-    };
 
-    attemptDeletion();
-}
+            res.status(200).json({ success: true, message: 'Update submitted successfully!' });
+            
+        });
+
+    } catch (error) {
+        console.error('Error during processing:', error);
+        if (req.file) deleteFileWithRetry(req.file.path); // Cleanup original file even on failure
+        return res.status(500).json({ success: false, message: error.message });
+    }
+});
+
 
 // Function to delete a file with retries on EPERM errors
 function deleteFileWithRetry(filePath, maxAttempts = 3) {

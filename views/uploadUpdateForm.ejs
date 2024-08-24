@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Upload Update for Asset <%= asset.id %></title>
+    <link rel="stylesheet" href="stylesuploadupdate.css">
+</head>
+<body>
+    <h1>Upload Update for Asset <%= asset.id %></h1>
+    
+    <form action="/uploadupdate/<%= asset.id %>" method="post" enctype="multipart/form-data">
+        <div>
+            <label for="status">Status:</label>
+            <input type="text" id="status" name="status" value="<%= asset.status %>" required>
+        </div>
+        
+        <div>
+            <label for="keterangan">Keterangan:</label>
+            <textarea id="keterangan" name="keterangan" required><%= asset.keterangan %></textarea>
+        </div>
+        
+        <div>
+            <label for="completion_date">Completion Date:</label>
+            <input type="date" id="completion_date" name="completion_date" value="<%= asset.completion_date ? asset.completion_date.toISOString().substring(0, 10) : '' %>" required>
+        </div>
+        
+        <div>
+            <label for="completed_photo">Completed Photo:</label>
+            <input type="file" id="completed_photo" name="completed_photo">
+            <% if (asset.completed_photo) { %>
+                <img src="/<%= asset.completed_photo %>" alt="Completed Photo" style="width:200px;">
+            <% } %>
+        </div>
+        
+        <button type="submit">Submit Update</button>
+    </form>
+</body>
+</html>

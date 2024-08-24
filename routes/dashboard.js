@@ -16,10 +16,14 @@ router.get('/dashboard', isAuthenticated, checkRole(['admin']), (req, res) => {
         SELECT 
             a.id, 
             a.foto, 
+            a.completed_photo,
             k.nama_kondisi, 
             a.catatan, 
             a.tanggal_dibuat, 
             a.target_completion_date,
+            a.completion_date,
+            a.status,
+            a.keterangan,
             u.name AS user, 
             ta.nama_tipe AS nama_tipe_aset, 
             tl.nama_lantai AS nama_lantai,
@@ -77,6 +81,7 @@ router.get('/dashboard', isAuthenticated, checkRole(['admin']), (req, res) => {
         }
     });
 });
+
 
 
 
