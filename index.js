@@ -241,28 +241,51 @@ app.post('/uploadupdate/:id', isAuthenticated, checkRole(['admin', 'petugas']), 
     console.log('Received file:', req.file);
 
     // Validate required fields
-    if (!status || !keterangan || !completion_date) {
+    if (!status || !keterangan) {
         return res.status(400).json({ success: false, message: 'Missing required fields.' });
     }
 
     let completedImagePath = null;
 
     try {
+        const querySelect = 'SELECT completed_photo FROM aset WHERE id = ?';
+        const [currentAsset] = await pool.query(querySelect, [assetId]);
+
+        if (!currentAsset) {
+            return res.status(404).json({ success: false, message: 'Asset not found.' });
+        }
+
+        // Delete old photo if new photo is uploaded
         if (req.file) {
-            // Process and resize the uploaded image
-            completedImagePath = `uploadscomplete/completed-${req.file.filename}`;
+            const oldPhotoDirectory = path.resolve(__dirname, 'uploadscomplete');
+            const oldPhotoPrefix = `completed-${assetId}`;
+            const files = fs.readdirSync(oldPhotoDirectory);
+
+            files.forEach(file => {
+                if (file.startsWith(oldPhotoPrefix)) {
+                    const oldFilePath = path.join(oldPhotoDirectory, file);
+                    console.log(`Attempting to delete old file: ${oldFilePath}`);
+                    deleteFileWithRetry(oldFilePath);
+                }
+            });
+
+            completedImagePath = path.join('uploadscomplete', `completed-${assetId}-${req.file.filename}`);
+            const fullCompletedImagePath = path.resolve(__dirname, completedImagePath);
             await sharp(req.file.path)
                 .rotate()
                 .resize(800)
                 .jpeg({ quality: 70 })
-                .toFile(completedImagePath);
+                .toFile(fullCompletedImagePath);
 
-            // Cleanup original file after successful processing
             deleteFileWithRetry(req.file.path);
+        } else {
+            completedImagePath = currentAsset.completed_photo; // Retain old photo if no new one is uploaded
         }
 
-        // SQL query to update data in the database
-        const query = `
+        // Handle null completion date
+        const completionDateValue = completion_date ? completion_date : null;
+
+        const queryUpdate = `
             UPDATE aset 
             SET completed_photo = ?, status = ?, keterangan = ?, completion_date = ? 
             WHERE id = ?
@@ -271,21 +294,21 @@ app.post('/uploadupdate/:id', isAuthenticated, checkRole(['admin', 'petugas']), 
             completedImagePath, 
             status, 
             keterangan, 
-            completion_date, 
+            completionDateValue, 
             assetId
         ];
 
-        // Execute the query
-        pool.query(query, queryValues, (err, result) => {
+        pool.query(queryUpdate, queryValues, (err, result) => {
             if (err) {
                 console.error('Failed to update the database:', err);
         
-                if (completedImagePath) deleteFileWithRetry(completedImagePath); // Cleanup resized file on failure
+                if (completedImagePath && completedImagePath !== currentAsset.completed_photo) {
+                    deleteFileWithRetry(path.resolve(__dirname, completedImagePath)); // Cleanup resized file on failure
+                }
                 return res.status(500).json({ success: false, message: 'Database update failed.' });
             }
 
             res.status(200).json({ success: true, message: 'Update submitted successfully!' });
-            
         });
 
     } catch (error) {
@@ -296,27 +319,41 @@ app.post('/uploadupdate/:id', isAuthenticated, checkRole(['admin', 'petugas']), 
 });
 
 
-// Function to delete a file with retries on EPERM errors
-function deleteFileWithRetry(filePath, maxAttempts = 3) {
-    let attempts = 0;
 
-    const attemptDeletion = () => {
-        fs.unlink(filePath, (err) => {
-            if (err) {
-                if (++attempts < maxAttempts) {
-                    console.log(`Attempt ${attempts} failed, retrying to delete ${filePath}...`);
-                    setTimeout(attemptDeletion, 1000); // retry after 1 second
-                } else {
-                    console.error(`Failed to delete ${filePath} after several attempts:`, err);
-                }
+/**
+ * Deletes a file with a specified number of retry attempts.
+ * @param {string} filePath - The path to the file that needs to be deleted.
+ * @param {number} retries - The number of retry attempts (default is 3).
+ */
+function deleteFileWithRetry(filePath, retries = 3) {
+    if (!filePath) {
+        console.error('No file path provided for deletion.');
+        return;
+    }
+    
+    const absolutePath = path.resolve(filePath);
+
+    const attemptDelete = (retryCount) => {
+        fs.unlink(absolutePath, (err) => {
+            if (err && err.code === 'ENOENT') {
+                console.log(`File not found (may already be deleted): ${absolutePath}`);
+                return; // File doesn't exist, so consider it deleted
+            } else if (err && retryCount > 0) {
+                console.log(`Error deleting file: ${absolutePath}. Retrying... (${retryCount} attempts left)`);
+                setTimeout(() => attemptDelete(retryCount - 1), 500); // Retry after 500ms
+            } else if (err) {
+                console.error(`Failed to delete file: ${absolutePath}. No retries left. Error: ${err.message}`);
             } else {
-                console.log(`File ${filePath} deleted successfully`);
+                console.log(`Successfully deleted file: ${absolutePath}`);
             }
         });
     };
 
-    attemptDeletion();
+    attemptDelete(retries);
 }
+
+module.exports = deleteFileWithRetry;
+
 
 // File upload endpoint
 

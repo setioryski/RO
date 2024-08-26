@@ -120,25 +120,33 @@ router.get('/export/pdf', isAuthenticated, checkRole(['admin']), async (req, res
 router.get('/export/excel', isAuthenticated, checkRole(['admin']), async (req, res) => {
     const fetch = (await import('node-fetch')).default;
     const { startDate, endDate, kondisi } = req.query;
+
     let query = `
         SELECT 
             a.id, 
             a.foto, 
+            a.completed_photo,
             k.nama_kondisi, 
             a.catatan, 
             a.tanggal_dibuat, 
+            a.target_completion_date,
+            a.completion_date,
+            a.status,
+            a.keterangan,
             u.name AS user, 
             ta.nama_tipe AS nama_tipe_aset, 
             tl.nama_lantai AS nama_lantai,
             td.nama_tipe AS nama_tipe_door,
-            th.nama_tipe AS nama_tipe_hb
+            th.nama_tipe AS nama_tipe_hb,
+            tdpt.nama_department AS nama_department
         FROM aset a
         LEFT JOIN user u ON a.id_user = u.id
         LEFT JOIN tipe_aset ta ON a.id_tipe_aset = ta.id
         LEFT JOIN tipe_lantai tl ON a.id_tipe_lantai = tl.id
         LEFT JOIN tipe_kondisi k ON a.id_kondisi = k.id
         LEFT JOIN tipe_door td ON a.id_tipe_door = td.id
-        LEFT JOIN tipe_hb th ON a.id_tipe_hb = th.id`;
+        LEFT JOIN tipe_hb th ON a.id_tipe_hb = th.id
+        LEFT JOIN tipe_department tdpt ON a.id_department = tdpt.id`;
 
     const params = [];
     const conditions = [];
@@ -164,18 +172,23 @@ router.get('/export/excel', isAuthenticated, checkRole(['admin']), async (req, r
             console.error('Failed to retrieve assets:', err);
             res.status(500).send('Error fetching assets from database');
         } else {
+            const ExcelJS = require('exceljs');
             const workbook = new ExcelJS.Workbook();
             const worksheet = workbook.addWorksheet('Assets Report');
 
             worksheet.columns = [
-                { header: 'ID', key: 'id', width: 10 },
-                { header: 'Date Created', key: 'date', width: 20 },
-                { header: 'User', key: 'user', width: 20 },
-                { header: 'Asset Type', key: 'assetType', width: 20 },
-                { header: 'Floor', key: 'floor', width: 10 },
-                { header: 'Condition', key: 'condition', width: 15 },
-                { header: 'Photo', key: 'photo', width: 30 },
-                { header: 'Notes', key: 'notes', width: 30 },
+                { header: 'NO', key: 'id', width: 10 },
+                { header: 'LANTAI', key: 'nama_lantai', width: 20 },
+                { header: 'ISSUE DEFECT', key: 'catatan', width: 30 },
+                { header: 'FINDING PICTURE', key: 'foto', width: 30 },
+                { header: 'PIC', key: 'nama_department', width: 20 },
+                { header: 'FINDING DATE', key: 'tanggal_dibuat', width: 20 },
+                { header: 'WORK PROGRESS DETAIL', key: 'nama_kondisi', width: 30 },
+                { header: 'TARGET COMPLETION', key: 'target_completion_date', width: 20 },
+                { header: 'STATUS', key: 'status', width: 15 },
+                { header: 'KETERANGAN', key: 'keterangan', width: 30 },
+                { header: 'COMPLETED PICTURE', key: 'completed_photo', width: 30 },
+                { header: 'COMPLETION DATE', key: 'completion_date', width: 20 }
             ];
 
             worksheet.eachRow((row, rowNumber) => {
@@ -190,15 +203,20 @@ router.get('/export/excel', isAuthenticated, checkRole(['admin']), async (req, r
                 });
             });
 
+            let no = 1; // To add a serial number for the 'NO' column
+
             for (const asset of results) {
                 const row = {
-                    id: asset.id,
-                    date: new Date(asset.tanggal_dibuat).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }),
-                    user: asset.user,
-                    assetType: asset.nama_tipe_door || asset.nama_tipe_hb || asset.nama_tipe_aset,
-                    floor: asset.nama_lantai,
-                    condition: asset.nama_kondisi,
-                    notes: asset.catatan
+                    id: no++,
+                    nama_lantai: asset.nama_lantai,
+                    catatan: asset.catatan,
+                    nama_department: asset.nama_department,
+                    tanggal_dibuat: new Date(asset.tanggal_dibuat).toLocaleString('id-ID', { dateStyle: 'short', timeStyle: 'short' }),
+                    nama_kondisi: asset.nama_kondisi,
+                    target_completion_date: asset.target_completion_date ? new Date(asset.target_completion_date).toLocaleDateString('id-ID') : 'Not Set',
+                    status: asset.status,
+                    keterangan: asset.keterangan,
+                    completion_date: asset.completion_date ? new Date(asset.completion_date).toLocaleDateString('id-ID') : 'Not Set',
                 };
 
                 const newRow = worksheet.addRow(row);
@@ -213,6 +231,7 @@ router.get('/export/excel', isAuthenticated, checkRole(['admin']), async (req, r
                     };
                 });
 
+                // Add finding picture
                 if (asset.foto) {
                     const imageUrl = new URL(asset.foto, BASE_URL);
                     const imageBuffer = await fetch(imageUrl.href).then(res => res.buffer());
@@ -223,7 +242,25 @@ router.get('/export/excel', isAuthenticated, checkRole(['admin']), async (req, r
                     });
 
                     worksheet.addImage(imageId, {
-                        tl: { col: 6, row: newRow.number - 1 },
+                        tl: { col: 3, row: newRow.number - 1 },
+                        ext: { width: 100, height: 100 }
+                    });
+
+                    newRow.height = 75; // Adjust row height to match image size
+                }
+
+                // Add completed picture
+                if (asset.completed_photo) {
+                    const completedImageUrl = new URL(asset.completed_photo, BASE_URL);
+                    const completedImageBuffer = await fetch(completedImageUrl.href).then(res => res.buffer());
+
+                    const completedImageId = workbook.addImage({
+                        buffer: completedImageBuffer,
+                        extension: 'jpeg',
+                    });
+
+                    worksheet.addImage(completedImageId, {
+                        tl: { col: 10, row: newRow.number - 1 },
                         ext: { width: 100, height: 100 }
                     });
 
@@ -247,12 +284,8 @@ router.get('/export/excel', isAuthenticated, checkRole(['admin']), async (req, r
             res.end();
         }
     });
-
-    async function getImageData(url) {
-        const response = await fetch(url);
-        const buffer = await response.buffer();
-        return buffer.toString('base64');
-    }
 });
+
+
 
 module.exports = router;

@@ -21,9 +21,6 @@
         <div class="tabs">
             <button class="tab-link active" onclick="openTab(event, 'manageUser')">Manage User</button>
             <button class="tab-link" onclick="openTab(event, 'manageTipeLantai')">Manage Tipe Lantai</button>
-            <button class="tab-link" onclick="openTab(event, 'manageTipeAset')">Manage Tipe Aset</button>
-            <button class="tab-link" onclick="openTab(event, 'manageTipeDoor')">Manage Tipe Door</button>
-            <button class="tab-link" onclick="openTab(event, 'manageTipeHB')">Manage Tipe HB</button>
         </div>
 
         <div id="manageUser" class="tab-content active">
@@ -100,129 +97,6 @@
                             <% } else { %>
                                 <tr>
                                     <td colspan="3">No floor types found</td>
-                                </tr>
-                            <% } %>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div id="manageTipeAset" class="tab-content">
-            <div class="table-container">
-                <div class="data-table">
-                    <h2>Manage Tipe Aset</h2>
-                    <button onclick="window.location.href='/add-tipe-aset-form';">Add Tipe Aset</button>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Asset Type</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <% if (tipe_aset && Array.isArray(tipe_aset) && tipe_aset.length > 0) { %>
-                                <% tipe_aset.forEach(item => { %>
-                                    <tr>
-                                        <td><%= item.id %></td>
-                                        <td><%= item.nama_tipe %></td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button onclick="window.location.href='/edit-tipe-aset-form/<%= item.id %>';">Edit</button>
-                                                <form method="POST" action="/delete-tipe-aset" style="display: inline;">
-                                                    <input type="hidden" name="id" value="<%= item.id %>">
-                                                    <button type="submit">Delete</button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                <% }) %>
-                            <% } else { %>
-                                <tr>
-                                    <td colspan="3">No asset types found</td>
-                                </tr>
-                            <% } %>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div id="manageTipeDoor" class="tab-content">
-            <div class="table-container">
-                <div class="data-table">
-                    <h2>Manage Tipe Door</h2>
-                    <button onclick="window.location.href='/add-tipe-door-form';">Add Tipe Door</button>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Door Type</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <% if (tipe_door && Array.isArray(tipe_door) && tipe_door.length > 0) { %>
-                                <% tipe_door.forEach(item => { %>
-                                    <tr>
-                                        <td><%= item.id %></td>
-                                        <td><%= item.nama_tipe %></td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button onclick="window.location.href='/edit-tipe-door-form/<%= item.id %>';">Edit</button>
-                                                <form method="POST" action="/delete-tipe-door" style="display: inline;">
-                                                    <input type="hidden" name="id" value="<%= item.id %>">
-                                                    <button type="submit">Delete</button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                <% }) %>
-                            <% } else { %>
-                                <tr>
-                                    <td colspan="3">No door types found</td>
-                                </tr>
-                            <% } %>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-
-        <div id="manageTipeHB" class="tab-content">
-            <div class="table-container">
-                <div class="data-table">
-                    <h2>Manage Tipe HB</h2>
-                    <button onclick="window.location.href='/add-tipe-hb-form';">Add Tipe HB</button>
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>HB Type</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <% if (tipe_hb && Array.isArray(tipe_hb) && tipe_hb.length > 0) { %>
-                                <% tipe_hb.forEach(item => { %>
-                                    <tr>
-                                        <td><%= item.id %></td>
-                                        <td><%= item.nama_tipe %></td>
-                                        <td>
-                                            <div class="action-buttons">
-                                                <button onclick="window.location.href='/edit-tipe-hb-form/<%= item.id %>';">Edit</button>
-                                                <form method="POST" action="/delete-tipe-hb" style="display: inline;">
-                                                    <input type="hidden" name="id" value="<%= item.id %>">
-                                                    <button type="submit">Delete</button>
-                                                </form>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                <% }) %>
-                            <% } else { %>
-                                <tr>
-                                    <td colspan="3">No HB types found</td>
                                 </tr>
                             <% } %>
                         </tbody>
