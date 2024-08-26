@@ -241,7 +241,7 @@ app.post('/uploadupdate/:id', isAuthenticated, checkRole(['admin', 'petugas']), 
     console.log('Received file:', req.file);
 
     // Validate required fields
-    if (!status || !keterangan) {
+    if (!status) {
         return res.status(400).json({ success: false, message: 'Missing required fields.' });
     }
 
@@ -991,3 +991,12 @@ function deleteFileWithRetry(filePath, maxAttempts = 3) {
     app.listen(port, () => {
     console.log(`HTTP server running on port ${port}`);
   });
+
+  const timeout = require('connect-timeout'); // Import the timeout middleware
+
+app.use(timeout('600s')); // Set a 10-minute timeout for all routes
+
+// Handle the timeout
+app.use((req, res, next) => {
+    if (!req.timedout) next();
+});
