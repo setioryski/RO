@@ -138,30 +138,22 @@ app.get('/logout', (req, res) => {
 
 
 app.post('/upload', isAuthenticated, checkRole(['admin', 'petugas']), upload.single('foto'), async (req, res) => {
-    const { 
-        catatan, 
-        id_user, 
-        id_tipe_aset, 
-        id_tipe_lantai, 
-        id_kondisi, 
-        id_tipe_hb, 
-        id_tipe_door, 
-        id_department, 
-        target_completion_date 
+    const {
+        catatan,
+        id_user,
+        id_tipe_lantai,
+        id_kondisi,
+        id_department,
+        target_completion_date,
     } = req.body;
 
-    console.log('Received form data:', req.body);
-    console.log('Received file:', req.file);
-
-    // Validate required fields
     if (!req.file || !id_kondisi || !id_user || !id_tipe_lantai || !id_department) {
         return res.status(400).json({ success: false, message: 'Missing required fields.' });
     }
 
-    const resizedImagePath = `uploads/resized-${req.file.filename}`;
-
     try {
         // Process and resize the uploaded image
+        const resizedImagePath = `uploads/resized-${req.file.filename}`;
         await sharp(req.file.path)
             .rotate()
             .resize(800)
@@ -171,23 +163,19 @@ app.post('/upload', isAuthenticated, checkRole(['admin', 'petugas']), upload.sin
         // SQL query to insert data into the database
         const query = `
             INSERT INTO aset (
-                foto, id_kondisi, catatan, id_user, id_tipe_aset, id_tipe_lantai, id_tipe_hb, id_tipe_door, id_department, target_completion_date
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                foto, id_kondisi, catatan, id_user, id_tipe_lantai, id_department, target_completion_date
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
         `;
         const queryValues = [
             resizedImagePath, 
             id_kondisi, 
             catatan, 
-            id_user, 
-            id_tipe_aset || null,  // Handle optional fields by setting to null if not provided
-            id_tipe_lantai, 
-            id_tipe_hb || null,     // Handle optional fields by setting to null if not provided
-            id_tipe_door || null,   // Handle optional fields by setting to null if not provided
+            id_user,
+            id_tipe_lantai,
             id_department, 
-            target_completion_date || null  // Handle optional fields by setting to null if not provided
+            target_completion_date || null
         ];
 
-        // Execute the query
         pool.query(query, queryValues, (err, result) => {
             if (err) {
                 console.error('Failed to insert into database:', err);
@@ -197,15 +185,17 @@ app.post('/upload', isAuthenticated, checkRole(['admin', 'petugas']), upload.sin
 
             // Cleanup original file after successful processing
             deleteFileWithRetry(req.file.path);
-            res.status(200).json({ success: true, message: 'Form submitted successfully!' });
+            return res.status(200).json({ success: true, message: 'Form submitted successfully!' });
         });
 
     } catch (error) {
         console.error('Error during processing:', error);
         deleteFileWithRetry(req.file.path); // Cleanup original file even on failure
-        return res.status(500).json({ success: false, message: error.message });
+        return res.status(500).json({ success: false, message: 'Server error: ' + error.message });
     }
 });
+
+
 
 
 

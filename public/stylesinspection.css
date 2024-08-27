@@ -112,9 +112,28 @@ img#previewImg {
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
 }
 
-#successMessage, #errorMessage {
+/* Style for the success, error, and loading messages */
+#successMessage, #errorMessage, #loadingMessage {
     text-align: center;
     margin-top: 20px;
     font-size: 16px;
     font-weight: 500;
+    padding: 10px;
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+#loadingMessage {
+    background-color: #e6f7ff; /* Light blue background */
+    color: #007BFF; /* Blue text color */
+}
+
+#successMessage {
+    background-color: #d4edda; /* Light green background */
+    color: green; /* Green text color */
+}
+
+#errorMessage {
+    background-color: #f8d7da; /* Light red background */
+    color: red; /* Red text color */
 }
