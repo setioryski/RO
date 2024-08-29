@@ -205,33 +205,48 @@ app.post('/upload', isAuthenticated, checkRole(['admin', 'petugas']), upload.sin
 app.get('/uploadupdate/:id', isAuthenticated, checkRole(['admin', 'petugas']), (req, res) => {
     const assetId = req.params.id;
 
-    // Fetch the asset data based on the assetId
-    const query = 'SELECT * FROM aset WHERE id = ?';
-    
-    pool.query(query, [assetId], (err, results) => {
+    // Query to fetch asset data
+    const queryAsset = 'SELECT * FROM aset WHERE id = ?';
+
+    // Query to fetch condition types
+    const queryConditions = 'SELECT id, nama_kondisi FROM tipe_kondisi';
+
+    pool.query(queryAsset, [assetId], (err, assetResults) => {
         if (err) {
             console.error('Failed to retrieve asset:', err);
             return res.status(500).send('Error fetching asset data');
         }
 
-        if (results.length === 0) {
+        if (assetResults.length === 0) {
             return res.status(404).send('Asset not found');
         }
 
-        const asset = results[0];
-        res.render('uploadUpdateForm', { asset });
+        const asset = assetResults[0];
+
+        // Fetch conditions
+        pool.query(queryConditions, (err, conditionResults) => {
+            if (err) {
+                console.error('Failed to retrieve conditions:', err);
+                return res.status(500).send('Error fetching condition data');
+            }
+
+            // Render the form with asset data and conditions
+            res.render('uploadUpdateForm', { asset, conditions: conditionResults });
+        });
     });
 });
 
+
+
 app.post('/uploadupdate/:id', isAuthenticated, checkRole(['admin', 'petugas']), upload.single('completed_photo'), async (req, res) => {
     const assetId = req.params.id;
-    const { status, keterangan, completion_date } = req.body;
+    const { status, keterangan, completion_date, id_kondisi } = req.body;
 
     console.log('Received form data:', req.body);
     console.log('Received file:', req.file);
 
     // Validate required fields
-    if (!status) {
+    if (!status || !id_kondisi) {
         return res.status(400).json({ success: false, message: 'Missing required fields.' });
     }
 
@@ -245,7 +260,7 @@ app.post('/uploadupdate/:id', isAuthenticated, checkRole(['admin', 'petugas']), 
             return res.status(404).json({ success: false, message: 'Asset not found.' });
         }
 
-        // Delete old photo if new photo is uploaded
+        // Handle photo update logic
         if (req.file) {
             const oldPhotoDirectory = path.resolve(__dirname, 'uploadscomplete');
             const oldPhotoPrefix = `completed-${assetId}`;
@@ -272,12 +287,11 @@ app.post('/uploadupdate/:id', isAuthenticated, checkRole(['admin', 'petugas']), 
             completedImagePath = currentAsset.completed_photo; // Retain old photo if no new one is uploaded
         }
 
-        // Handle null completion date
         const completionDateValue = completion_date ? completion_date : null;
 
         const queryUpdate = `
             UPDATE aset 
-            SET completed_photo = ?, status = ?, keterangan = ?, completion_date = ? 
+            SET completed_photo = ?, status = ?, keterangan = ?, completion_date = ?, id_kondisi = ?
             WHERE id = ?
         `;
         const queryValues = [
@@ -285,6 +299,7 @@ app.post('/uploadupdate/:id', isAuthenticated, checkRole(['admin', 'petugas']), 
             status, 
             keterangan, 
             completionDateValue, 
+            id_kondisi,  // Update the id_kondisi value
             assetId
         ];
 

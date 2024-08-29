@@ -40,7 +40,7 @@ router.get('/dashboard', isAuthenticated, checkRole(['admin']), (req, res) => {
         LEFT JOIN tipe_department tdpt ON a.id_department = tdpt.id`;
 
     const params = [];
-    const { startDate, endDate, kondisi } = req.query;
+    const { startDate, endDate, kondisi, statusDone, statusNotDone } = req.query;
     const conditions = [];
 
     if (startDate && endDate) {
@@ -53,35 +53,67 @@ router.get('/dashboard', isAuthenticated, checkRole(['admin']), (req, res) => {
         params.push(kondisi);
     }
 
+    if (statusDone && statusNotDone) {
+        // Both checked, no need to filter (fetch all statuses)
+    } else if (statusDone) {
+        conditions.push(`a.status = 'Done'`);
+    } else if (statusNotDone) {
+        conditions.push(`a.status != 'Done'`);
+    }
+
     if (conditions.length > 0) {
         query += ` WHERE ` + conditions.join(' AND ');
     }
 
     query += ` ORDER BY a.id ASC`;
 
-    pool.query(query, params, (err, results) => {
+    let countQuery = `
+        SELECT 
+            COUNT(*) AS total_defect, 
+            SUM(CASE WHEN a.status != 'Done' THEN 1 ELSE 0 END) AS total_on_progress, 
+            SUM(CASE WHEN a.status = 'Done' THEN 1 ELSE 0 END) AS total_done
+        FROM aset a
+        LEFT JOIN tipe_kondisi k ON a.id_kondisi = k.id
+    `;
+
+    if (conditions.length > 0) {
+        countQuery += ` WHERE ` + conditions.join(' AND ');
+    }
+
+    pool.query(countQuery, params, (err, countResults) => {
         if (err) {
-            console.error('Failed to retrieve assets:', err);
-            res.status(500).send('Error fetching assets from database');
+            console.error('Failed to retrieve defect counts:', err);
+            res.status(500).send('Error fetching defect counts from database');
         } else {
-            pool.query('SELECT DISTINCT nama_kondisi FROM tipe_kondisi', (err, kondisiResults) => {
+            pool.query(query, params, (err, results) => {
                 if (err) {
-                    console.error('Failed to retrieve kondisi options:', err);
-                    res.status(500).send('Error fetching kondisi options from database');
+                    console.error('Failed to retrieve assets:', err);
+                    res.status(500).send('Error fetching assets from database');
                 } else {
-                    res.render('dashboard', { 
-                        assets: results, 
-                        kondisiOptions: kondisiResults, 
-                        startDate, 
-                        endDate, 
-                        kondisi 
+                    pool.query('SELECT DISTINCT nama_kondisi FROM tipe_kondisi', (err, kondisiResults) => {
+                        if (err) {
+                            console.error('Failed to retrieve kondisi options:', err);
+                            res.status(500).send('Error fetching kondisi options from database');
+                        } else {
+                            res.render('dashboard', { 
+                                assets: results, 
+                                kondisiOptions: kondisiResults, 
+                                startDate, 
+                                endDate, 
+                                kondisi, 
+                                statusDone, 
+                                statusNotDone,
+                                totalDefect: countResults[0].total_defect,
+                                totalOnProgress: countResults[0].total_on_progress,
+                                totalDone: countResults[0].total_done
+                            });
+                        }
                     });
                 }
             });
         }
     });
 });
-
 
 
 
@@ -180,17 +212,18 @@ router.get('/export/excel', isAuthenticated, checkRole(['admin']), async (req, r
                 { header: 'NO', key: 'id', width: 10 },
                 { header: 'LANTAI', key: 'nama_lantai', width: 20 },
                 { header: 'ISSUE DEFECT', key: 'catatan', width: 30 },
-                { header: 'FINDING PICTURE', key: 'foto', width: 30 },
+                { header: 'FINDING PICTURE', key: 'foto', width: 16 },
                 { header: 'PIC', key: 'nama_department', width: 20 },
                 { header: 'FINDING DATE', key: 'tanggal_dibuat', width: 20 },
                 { header: 'WORK PROGRESS DETAIL', key: 'nama_kondisi', width: 30 },
                 { header: 'TARGET COMPLETION', key: 'target_completion_date', width: 20 },
-                { header: 'STATUS', key: 'status', width: 15 },
+                { header: 'STATUS', key: 'status', width: 18 },
                 { header: 'KETERANGAN', key: 'keterangan', width: 30 },
-                { header: 'COMPLETED PICTURE', key: 'completed_photo', width: 30 },
+                { header: 'COMPLETED PICTURE', key: 'completed_photo', width: 16 },
                 { header: 'COMPLETION DATE', key: 'completion_date', width: 20 }
             ];
 
+            // Apply border and alignment to header row
             worksheet.eachRow((row, rowNumber) => {
                 row.eachCell((cell, colNumber) => {
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
@@ -221,6 +254,7 @@ router.get('/export/excel', isAuthenticated, checkRole(['admin']), async (req, r
 
                 const newRow = worksheet.addRow(row);
 
+                // Apply border and alignment to each cell in the row
                 newRow.eachCell((cell) => {
                     cell.alignment = { vertical: 'middle', horizontal: 'center' };
                     cell.border = {
@@ -241,9 +275,12 @@ router.get('/export/excel', isAuthenticated, checkRole(['admin']), async (req, r
                         extension: 'jpeg',
                     });
 
+                    const imageWidth = 100; // Assuming each image width in points
+                    worksheet.getColumn(3).width = Math.max(worksheet.getColumn(3).width, imageWidth / 7.5);
+
                     worksheet.addImage(imageId, {
                         tl: { col: 3, row: newRow.number - 1 },
-                        ext: { width: 100, height: 100 }
+                        ext: { width: imageWidth, height: 100 }
                     });
 
                     newRow.height = 75; // Adjust row height to match image size
@@ -259,9 +296,12 @@ router.get('/export/excel', isAuthenticated, checkRole(['admin']), async (req, r
                         extension: 'jpeg',
                     });
 
+                    const completedImageWidth = 100; // Assuming each image width in points
+                    worksheet.getColumn(10).width = Math.max(worksheet.getColumn(10).width, completedImageWidth / 7.5);
+
                     worksheet.addImage(completedImageId, {
                         tl: { col: 10, row: newRow.number - 1 },
-                        ext: { width: 100, height: 100 }
+                        ext: { width: completedImageWidth, height: 100 }
                     });
 
                     newRow.height = 75; // Adjust row height to match image size
@@ -285,6 +325,9 @@ router.get('/export/excel', isAuthenticated, checkRole(['admin']), async (req, r
         }
     });
 });
+
+
+
 
 
 

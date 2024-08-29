@@ -198,3 +198,62 @@ img {
         width: auto;
     }
 }
+
+/*recap table*/
+
+.recap-container {
+    margin-top: 20px;
+    width: 300px; /* Adjust width based on your layout */
+}
+
+.recap-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    box-shadow: 0 2px 15px rgba(0, 0, 0, 0.1);
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.recap-table th, .recap-table td {
+    padding: 12px 15px;
+    text-align: left;
+}
+
+.recap-table th {
+    background-color: #f8f8f8;
+    font-weight: 600;
+    color: #333;
+    border-bottom: 2px solid #e0e0e0;
+}
+
+.recap-table td {
+    background-color: #fff;
+    color: #555;
+}
+
+.recap-table tr:nth-child(even) td {
+    background-color: #f8f8f8;
+}
+
+.recap-table tr:last-child td {
+    font-weight: bold;
+    background-color: #e0e0e0;
+    color: #333;
+}
+
+.recap-table tr:first-child th:first-child {
+    border-top-left-radius: 12px;
+}
+
+.recap-table tr:first-child th:last-child {
+    border-top-right-radius: 12px;
+}
+
+.recap-table tr:last-child td:first-child {
+    border-bottom-left-radius: 12px;
+}
+
+.recap-table tr:last-child td:last-child {
+    border-bottom-right-radius: 12px;
+}

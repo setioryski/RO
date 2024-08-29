@@ -31,13 +31,25 @@
                 </div>
 
                 <div class="form-group">
-                    <label for="kondisi">Kondisi:</label>
+                    <label for="kondisi">Work Progress:</label>
                     <select id="kondisi" name="kondisi">
                         <option value="">All Conditions</option>
                         <% kondisiOptions.forEach(option => { %>
                             <option value="<%= option.nama_kondisi %>" <%= kondisi === option.nama_kondisi ? 'selected' : '' %>><%= option.nama_kondisi %></option>
                         <% }); %>
                     </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="status">Status:</label>
+                    <div>
+                        <input type="checkbox" id="statusDone" name="statusDone" value="Done" <%= statusDone ? 'checked' : '' %>>
+                        <label for="statusDone">Done</label>
+                    </div>
+                    <div>
+                        <input type="checkbox" id="statusNotDone" name="statusNotDone" value="NotDone" <%= statusNotDone ? 'checked' : '' %>>
+                        <label for="statusNotDone">Not Done</label>
+                    </div>
                 </div>
 
                 <div class="form-group">
@@ -108,6 +120,36 @@
                 <% }); %>
             </tbody>
         </table>
+        <div class="recap-container">
+            <table class="recap-table">
+                <thead>
+                    <tr>
+                        <h2>REKAP TEMUAN DEFECT</h2>
+                        <th>Subyek</th>
+                        <th>Quantity</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Temuan Defect</td>
+                        <td><%= totalDefect %></td>
+                    </tr>
+                    <tr>
+                        <td>Temuan On Progress</td>
+                        <td><%= totalOnProgress %></td>
+                    </tr>
+                    <tr>
+                        <td>Temuan Done</td>
+                        <td><%= totalDone %></td>
+                    </tr>
+                    <tr>
+                        <td>Total</td>
+                        <td><%= totalDefect %></td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        
     </div>
 
     <script>
